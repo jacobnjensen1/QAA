@@ -1,0 +1,115 @@
+---
+title: "QAA Report"
+author: "Jacob Jensen"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+My libraries were 3_2B_control_S3_L008_R\*_001 and 17_3E_fox_S13_L008_R\*_001. 
+I will refer to them as 3\* and 17\* for convenience. 
+
+### Part 1 - Read quality score distributions
+
+Quality score distributions:
+
+```{r, echo=FALSE,out.width="41%", fig.cap="Per base quality plots for 3\\*R1",fig.show='hold',fig.align='center'}
+knitr::include_graphics(c("fastqc_out/3_2B_control_S3_L008_R1_001_fastqc/Images/per_base_quality.png","myFigs/3_R1.png", "fastqc_out/3_2B_control_S3_L008_R1_001_fastqc/Images/per_base_n_content.png"))
+
+``` 
+
+```{r, echo=FALSE,out.width="41%",fig.cap="Per base quality plots for 3\\*R2",fig.show='hold',fig.align='center'}
+knitr::include_graphics(c("fastqc_out/3_2B_control_S3_L008_R2_001_fastqc/Images/per_base_quality.png","myFigs/3_R2.png", "fastqc_out/3_2B_control_S3_L008_R2_001_fastqc/Images/per_base_n_content.png"))
+
+``` 
+
+```{r, echo=FALSE,out.width="41%",fig.cap="Per base quality plots for 17\\*R1",fig.show='hold',fig.align='center'}
+knitr::include_graphics(c("fastqc_out/17_3E_fox_S13_L008_R1_001_fastqc/Images/per_base_quality.png","myFigs/17_R1.png", "fastqc_out/17_3E_fox_S13_L008_R1_001_fastqc/Images/per_base_n_content.png"))
+
+``` 
+
+```{r, echo=FALSE,out.width="41%",fig.cap="Per base quality plots for 17\\*R2",fig.show='hold',fig.align='center'}
+knitr::include_graphics(c("fastqc_out/17_3E_fox_S13_L008_R2_001_fastqc/Images/per_base_quality.png","myFigs/17_R2.png", "fastqc_out/17_3E_fox_S13_L008_R2_001_fastqc/Images/per_base_n_content.png"))
+``` 
+
+These plots show the same trends. The plots produced by fastqc have information about the distribution of quality scores in each bin of base pairs, whereas mine only shows the mean quality score at each base pair. 
+The runtime differs greatly. Fastqc took 196.62 seconds to process all four files, while the fastest my script processed a single file was 142.54 seconds. 
+This runtime difference is because fastqc was built by a group of experts in a fast language, while my script was written by me in a slow language.
+
+The average quality of both libraries appears to be good. Both read 1 files have reads with higher quality scores than their read 2 counterparts, but the average quality score at all base pairs is still good for the second reads.
+The per base n content does not show any major issues, with only a few Ns being present almost exclusively at the beginning of reads, where the quality is suspect.
+Other output from fastqc showed no major issues with the libraries. 
+There were some overrepresented sequences that blasted against the 18S rRNA in the R2 files. There were some TruSeq adapters present in the 17\*R1 file, and an Illumina primer in the 17\*R2 file.
+
+### Part 2 - Adapter trimming comparison
+
+Grepping for the adapter and primer sequences listed by fastqc showed results in the beginning and middle of the sequences, so I ignored them and looked at the cutadapt documentation for TruSeq adapter sequences.
+It listed AGATCGGAAGAGCACACGTCTGAACTCCAGTCA and AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT as the sequences for R1 and R2, respectively.
+Grepping for these sequences found hits towards the end of sequences, which is to be expected for adapters. These sequences matched the sequences in the hint, so I proceeded.
+
+Cutadapt trimmed 3.2% of reads for 3\*R1, 3.9% of reads for 3\*R2, 8.7% of reads for 17\*R1, and 9.4% of reads for R2.
+
+Trimming produced paired reads with the following length distributions:
+
+```{r, echo=F, message=F, fig.height=4}
+library(tidyverse)
+
+data_3_1 = read_table("trimmed/3_filtered_1P_lengths.txt", col_names = c("count", "length"))
+data_3_2 = read_table("trimmed/3_filtered_2P_lengths.txt", col_names = c("count", "length"))
+data_17_1 = read_table("trimmed/17_filtered_1P_lengths.txt", col_names = c("count", "length"))
+data_17_2 = read_table("trimmed/17_filtered_2P_lengths.txt", col_names = c("count", "length"))
+
+data_3_1 = cbind(data_3_1, Dir=c(1))
+data_3_2 = cbind(data_3_2, Dir=c(2))
+data_17_1 = cbind(data_17_1, Dir=c(1))
+data_17_2 = cbind(data_17_2, Dir=c(2))
+
+data_3 = rbind(data_3_1, data_3_2)
+data_17 = rbind(data_17_1, data_17_2)
+
+ggplot(data_3) +
+  geom_line(aes(x=length, y=count, color=factor(Dir)), stat="identity", size=1) +
+  scale_color_manual(values=c("#D55E00", "#56B4E9"), name="Read direction") +
+  scale_y_log10() +
+  xlab("Trimmed Read Length") +
+  ylab("Read Count (log10 scaled)") +
+  ggtitle("Trimmed read length distribution for 3_2B_control_S3_L008_R*_001")
+
+ggplot(data_17) +
+  geom_line(aes(x=length, y=count, color=factor(Dir)), stat="identity",  size=1) +
+  scale_color_manual(values=c("#D55E00", "#56B4E9"), name="Read direction") +
+  scale_y_log10() +
+  xlab("Trimmed Read Length") +
+  ylab("Read Count (log10 scaled)") +
+  ggtitle("Trimmed read length distribution for 17_3E_fox_S13_L008_R2_001")
+
+```
+
+As the line for R2 is higher than the line for R1 for shorter read lengths, we know that R2 reads were trimmed more than R1 reads. 
+Based on the cutadapt output, we know that the R2s had more adapter trimming. 
+Based on the per base quality, we can assume that trimmomatic likely removed more bases from the R2s as well.
+
+### Part 3 - Alignment and strand-specificity
+
+I downloaded the most recent mouse genome and gtf from ensembl. I used STAR to align the processed reads to the mouse genome.
+
+After aligning, my script counted the total number of mapped and unmapped reads.
+I used htseq-count to check for mapping patterns between the two strandedness options, and the mapped reads were counted with `grep -v "^_" $htseq-count_output | cut -f 2 | awk '{s+=$1} END {print s}'` producing these results:
+
+```{r, echo=F, results="asis", out.width="50%"}
+counts = matrix(c(c(12359958, 496080, 245058, 5260739), c(21532824, 948708, 443307, 8952669)), ncol=4, byrow=T)
+colnames(counts) = c("total mapped", "unmapped", "forward stranded", "reverse stranded")
+rownames(counts) = c("3*", "17*")
+
+knitr::kable(counts, caption="Summarized read counts") %>%
+  kableExtra::kable_styling(full_width=F, latex_options="hold_position")
+
+```
+
+As the htseq-count results are not close to each other within each library, we know that the libraries are stranded.
+As the counts are significantly higher with `stranded=reverse` (`r format(5260739 - 245058, scientific=F)` higher for 3\* and `r format(8952669 - 443307, scientific=F)` higher for 17\*), we know that the R2 reads have the sequence of the coding strand.
