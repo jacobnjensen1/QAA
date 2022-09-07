@@ -8,7 +8,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, tidy = T, tidy.opts = list(width.cutoff = 60))
 ```
 
 My libraries were 3_2B_control_S3_L008_R\*_001 and 17_3E_fox_S13_L008_R\*_001. 
@@ -52,7 +52,9 @@ Grepping for the adapter and primer sequences listed by fastqc showed results in
 It listed AGATCGGAAGAGCACACGTCTGAACTCCAGTCA and AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT as the sequences for R1 and R2, respectively.
 Grepping for these sequences found hits towards the end of sequences, which is to be expected for adapters. These sequences matched the sequences in the hint, so I proceeded.
 
-Cutadapt trimmed 3.2% of reads for 3\*R1, 3.9% of reads for 3\*R2, 8.7% of reads for 17\*R1, and 9.4% of reads for R2.
+cutadapt trimmed 3.2% of reads for 3\*R1, 3.9% of reads for 3\*R2, 8.7% of reads for 17\*R1, and 9.4% of reads for R2.
+
+trimmomatic was run with these parameters: `LEADING:3 TRAILING:3 SLIDINGWINDOW:5:15 MINLEN:35`
 
 Trimming produced paired reads with the following length distributions:
 
